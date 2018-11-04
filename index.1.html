@@ -158,14 +158,8 @@
             object,
             loader,
             mixer,
-            stats,
-            ballMat,
-            cubeMat,
-            floorMat;
-
-        var lightRadius = 0.07;
-        var lightGroundHeight = 4;
-        var lightLength = 2.7;
+            stats;
+        var ballMat, cubeMat, floorMat;
 
         // ref for lumens: http://www.power-sure.com/lumens.htm
         var bulbLuminousPowers = {
@@ -227,7 +221,7 @@
             scene = new THREE.Scene();
 
             /* Bulb 1 */
-            var bulbGeometry_1 = new THREE.CylinderBufferGeometry(lightRadius, lightRadius, lightLength, 10);
+            var bulbGeometry_1 = new THREE.SphereBufferGeometry(0.1, 16, 8);
             bulbLight_1 = new THREE.PointLight(0xffee88, 1, 100, 2);
             bulbMat_1 = new THREE.MeshStandardMaterial({
                 emissive: 0xffffee,
@@ -235,12 +229,12 @@
                 color: 0x000000
             });
             bulbLight_1.add(new THREE.Mesh(bulbGeometry_1, bulbMat_1));
-            bulbLight_1.position.set(0, lightGroundHeight, -10);
+            bulbLight_1.position.set(0, 2.5, -10);
             bulbLight_1.castShadow = true;
             scene.add(bulbLight_1);
 
             /* Bulb 2 */
-            var bulbGeometry_2 = new THREE.CylinderBufferGeometry(lightRadius, lightRadius, lightLength, 10);
+            var bulbGeometry_2 = new THREE.SphereBufferGeometry(0.1, 16, 8);
             bulbLight_2 = new THREE.PointLight(0xffee88, 1, 100, 2);
             bulbMat_2 = new THREE.MeshStandardMaterial({
                 emissive: 0xffffee,
@@ -248,12 +242,12 @@
                 color: 0x000000
             });
             bulbLight_2.add(new THREE.Mesh(bulbGeometry_2, bulbMat_2));
-            bulbLight_2.position.set(10, lightGroundHeight, -10);
+            bulbLight_2.position.set(10, 2.5, -10);
             bulbLight_2.castShadow = true;
             scene.add(bulbLight_2);
 
             /* Bulb 3 */
-            var bulbGeometry_3 = new THREE.CylinderBufferGeometry(lightRadius, lightRadius, lightLength, 10);
+            var bulbGeometry_3 = new THREE.SphereBufferGeometry(0.1, 16, 8);
             bulbLight_3 = new THREE.PointLight(0xffee88, 1, 100, 2);
             bulbMat_3 = new THREE.MeshStandardMaterial({
                 emissive: 0xffffee,
@@ -261,12 +255,12 @@
                 color: 0x000000
             });
             bulbLight_3.add(new THREE.Mesh(bulbGeometry_3, bulbMat_3));
-            bulbLight_3.position.set(10, lightGroundHeight, 0);
+            bulbLight_3.position.set(10, 2.5, 0);
             bulbLight_3.castShadow = true;
             scene.add(bulbLight_3);
 
             /* Bulb 4 */
-            var bulbGeometry_4 = new THREE.CylinderBufferGeometry(lightRadius, lightRadius, lightLength, 10);
+            var bulbGeometry_4 = new THREE.SphereBufferGeometry(0.1, 16, 8);
             bulbLight_4 = new THREE.PointLight(0xffee88, 1, 100, 2);
             bulbMat_4 = new THREE.MeshStandardMaterial({
                 emissive: 0xffffee,
@@ -274,13 +268,13 @@
                 color: 0x000000
             });
             bulbLight_4.add(new THREE.Mesh(bulbGeometry_4, bulbMat_4));
-            bulbLight_4.position.set(10, lightGroundHeight, 10);
+            bulbLight_4.position.set(10, 2.5, 10);
             bulbLight_4.castShadow = true;
             scene.add(bulbLight_4);
 
 
             /* Bulb 5 */
-            var bulbGeometry_5 = new THREE.CylinderBufferGeometry(lightRadius, lightRadius, lightLength, 10);
+            var bulbGeometry_5 = new THREE.SphereBufferGeometry(0.1, 16, 8);
             bulbLight_5 = new THREE.PointLight(0xffee88, 1, 100, 2);
             bulbMat_5 = new THREE.MeshStandardMaterial({
                 emissive: 0xffffee,
@@ -288,13 +282,13 @@
                 color: 0x000000
             });
             bulbLight_5.add(new THREE.Mesh(bulbGeometry_5, bulbMat_5));
-            bulbLight_5.position.set(0, lightGroundHeight, 10);
+            bulbLight_5.position.set(0, 2.5, 10);
             bulbLight_5.castShadow = true;
             scene.add(bulbLight_5);
 
 
             /* Bulb 6 */
-            var bulbGeometry_6 = new THREE.CylinderBufferGeometry(lightRadius, lightRadius, lightLength, 10);
+            var bulbGeometry_6 = new THREE.SphereBufferGeometry(0.1, 16, 8);
             bulbLight_6 = new THREE.PointLight(0xffee88, 1, 100, 2);
             bulbMat_6 = new THREE.MeshStandardMaterial({
                 emissive: 0xffffee,
@@ -302,12 +296,12 @@
                 color: 0x000000
             });
             bulbLight_6.add(new THREE.Mesh(bulbGeometry_6, bulbMat_6));
-            bulbLight_6.position.set(-10, lightGroundHeight, 10);
+            bulbLight_6.position.set(-10, 2.5, 10);
             bulbLight_6.castShadow = true;
             scene.add(bulbLight_6);
 
             /* Bulb 7 */
-            var bulbGeometry_7 = new THREE.CylinderBufferGeometry(lightRadius, lightRadius, lightLength, 10);
+            var bulbGeometry_7 = new THREE.SphereBufferGeometry(0.1, 16, 8);
             bulbLight_7 = new THREE.PointLight(0xffee88, 1, 100, 2);
             bulbMat_7 = new THREE.MeshStandardMaterial({
                 emissive: 0xffffee,
@@ -315,12 +309,12 @@
                 color: 0x000000
             });
             bulbLight_7.add(new THREE.Mesh(bulbGeometry_7, bulbMat_7));
-            bulbLight_7.position.set(-10, lightGroundHeight, 0);
+            bulbLight_7.position.set(-10, 2.5, 0);
             bulbLight_7.castShadow = true;
             scene.add(bulbLight_7);
 
             /* Bulb 8 */
-            var bulbGeometry_8 = new THREE.CylinderBufferGeometry(lightRadius, lightRadius, lightLength, 10);
+            var bulbGeometry_8 = new THREE.SphereBufferGeometry(0.1, 16, 8);
             bulbLight_8 = new THREE.PointLight(0xffee88, 1, 100, 2);
             bulbMat_8 = new THREE.MeshStandardMaterial({
                 emissive: 0xffffee,
@@ -328,7 +322,7 @@
                 color: 0x000000
             });
             bulbLight_8.add(new THREE.Mesh(bulbGeometry_8, bulbMat_8));
-            bulbLight_8.position.set(-10, lightGroundHeight, -10);
+            bulbLight_8.position.set(-10, 2.5, -10);
             bulbLight_8.castShadow = true;
             scene.add(bulbLight_8);
 
