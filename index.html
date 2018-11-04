@@ -1,0 +1,503 @@
+<html>
+
+<head>
+    <title>Midi to Node</title>
+    <style>
+        body {
+            background-color: #000;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #info {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            color: #ffffff;
+            padding: 5px;
+            font-family: Monospace;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        a {
+            color: #ff0080;
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: #0080ff;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="container"></div>
+    <div id="info">
+        3D Preview
+    </div>
+    <script src="https://threejs.org/build/three.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/ColladaLoader.js"></script>
+    <script src="https://threejs.org/examples/js/libs/stats.min.js"></script>
+    <script src="https://threejs.org/examples/js/libs/dat.gui.min.js"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://threejs.org/examples/js/WebGL.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/webmidi"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
+    <script>
+
+        // note definitions
+        var noteValues = {
+            "60": 1,
+            "61": 1,
+            "62": 1,
+            "63": 1,
+            "64": 1,
+            "65": 1,
+            "66": 1,
+            "67": 1
+        };
+
+        var socket = io('http://localhost:3000');
+
+        // Variable which tell us what step of the game we're on. 
+        var currentStep = 0;
+
+        // Request MIDI access
+        if (navigator.requestMIDIAccess) {
+            console.log('This browser supports WebMIDI!');
+
+            navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
+
+        } else {
+            console.log('WebMIDI is not supported in this browser.');
+        }
+
+        // Function to run when requestMIDIAccess is successful
+        function onMIDISuccess(midiAccess) {
+            var inputs = midiAccess.inputs;
+            var outputs = midiAccess.outputs;
+
+            // Attach MIDI event "listeners" to each input
+            for (var input of midiAccess.inputs.values()) {
+                input.onmidimessage = getMIDIMessage;
+            }
+        }
+
+        // Function to run when requestMIDIAccess fails
+        function onMIDIFailure() {
+            console.log('Error: Could not access MIDI devices.');
+        }
+
+        // Function to parse the MIDI messages we receive
+        // For this app, we're only concerned with the actual note value,
+        // but we can parse for other information, as well
+        function getMIDIMessage(message) {
+            var command = message.data[0];
+            var note = message.data[1];
+            var velocity = (message.data.length > 2) ? message.data[2] : 0; // a velocity value might not be included with a noteOff command
+
+            switch (command) {
+                case 144: // noteOn
+                    if (velocity > 0) {
+                        noteOn(note, velocity);
+                    } else {
+                        noteOff(note);
+                    }
+                    break;
+                case 128: // noteOff
+                    noteOff(note);
+                    break;
+                // we could easily expand this switch statement to cover other types of commands such as controllers or sysex
+            }
+        }
+
+        // Function to handle noteOn messages (ie. key is pressed)
+        // Think of this like an 'onkeydown' event
+        function noteOn(note) {
+            socket.emit('midi-note-on', { data: note });
+            noteValues[note] = 1;
+            console.log("note on", note);
+        }
+
+        // Function to handle noteOff messages (ie. key is released)
+        // Think of this like an 'onkeyup' event
+        function noteOff(note) {
+            socket.emit('midi-note-off', { data: note });
+            noteValues[note] = 0;
+            console.log("note off", note);
+        }
+
+
+        /** 3D PREVIEW **/
+        if (WEBGL.isWebGLAvailable() === false) {
+            document.body.appendChild(WEBGL.getWebGLErrorMessage());
+        }
+
+        var camera,
+            scene,
+            renderer,
+            bulbLight_1,
+            bulbLight_2,
+            bulbLight_3,
+            bulbLight_4,
+            bulbLight_5,
+            bulbLight_6,
+            bulbLight_7,
+            bulbLight_8,
+            bulbMat_1,
+            bulbMat_2,
+            bulbMat_3,
+            bulbMat_4,
+            bulbMat_5,
+            bulbMat_6,
+            bulbMat_7,
+            bulbMat_8,
+            hemiLight,
+            object,
+            loader,
+            mixer,
+            stats;
+        var ballMat, cubeMat, floorMat;
+
+        // ref for lumens: http://www.power-sure.com/lumens.htm
+        var bulbLuminousPowers = {
+            "110000 lm (1000W)": 110000,
+            "3500 lm (300W)": 3500,
+            "1700 lm (100W)": 1700,
+            "800 lm (60W)": 800,
+            "400 lm (40W)": 400,
+            "180 lm (25W)": 180,
+            "20 lm (4W)": 20,
+            Off: 0
+        };
+
+        // ref for solar irradiances: https://en.wikipedia.org/wiki/Lux
+        var hemiLuminousIrradiances = {
+            "0.002 lx (Night Airglow)": 0.05,
+            "0.0001 lx (Moonless Night)": 0.0001,
+            "0.5 lx (Full Moon)": 0.5,
+            "3.4 lx (City Twilight)": 3.4,
+            "50 lx (Living Room)": 50,
+            "100 lx (Very Overcast)": 100,
+            "350 lx (Office Room)": 350,
+            "400 lx (Sunrise/Sunset)": 400,
+            "1000 lx (Overcast)": 1000,
+            "18000 lx (Daylight)": 18000,
+            "50000 lx (Direct Sun)": 50000
+        };
+
+        var params = {
+            shadows: true,
+            exposure: 0.68,
+            bulbPower: Object.keys(bulbLuminousPowers)[4],
+            hemiIrradiance: Object.keys(hemiLuminousIrradiances)[0]
+        };
+
+        var clock = new THREE.Clock();
+
+        init();
+        animate();
+
+        function init() {
+
+            /* Base setup */
+            var container = document.getElementById("container");
+
+            stats = new Stats();
+            container.appendChild(stats.dom);
+
+            camera = new THREE.PerspectiveCamera(
+                50,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                100
+            );
+            camera.position.x = -1;
+            camera.position.z = 15;
+            camera.position.y = 8;
+
+            scene = new THREE.Scene();
+
+            /* Bulb 1 */
+            var bulbGeometry_1 = new THREE.SphereBufferGeometry(0.1, 16, 8);
+            bulbLight_1 = new THREE.PointLight(0xffee88, 1, 100, 2);
+            bulbMat_1 = new THREE.MeshStandardMaterial({
+                emissive: 0xffffee,
+                emissiveIntensity: 1,
+                color: 0x000000
+            });
+            bulbLight_1.add(new THREE.Mesh(bulbGeometry_1, bulbMat_1));
+            bulbLight_1.position.set(0, 2.5, -10);
+            bulbLight_1.castShadow = true;
+            scene.add(bulbLight_1);
+
+            /* Bulb 2 */
+            var bulbGeometry_2 = new THREE.SphereBufferGeometry(0.1, 16, 8);
+            bulbLight_2 = new THREE.PointLight(0xffee88, 1, 100, 2);
+            bulbMat_2 = new THREE.MeshStandardMaterial({
+                emissive: 0xffffee,
+                emissiveIntensity: 1,
+                color: 0x000000
+            });
+            bulbLight_2.add(new THREE.Mesh(bulbGeometry_2, bulbMat_2));
+            bulbLight_2.position.set(10, 2.5, -10);
+            bulbLight_2.castShadow = true;
+            scene.add(bulbLight_2);
+
+            /* Bulb 3 */
+            var bulbGeometry_3 = new THREE.SphereBufferGeometry(0.1, 16, 8);
+            bulbLight_3 = new THREE.PointLight(0xffee88, 1, 100, 2);
+            bulbMat_3 = new THREE.MeshStandardMaterial({
+                emissive: 0xffffee,
+                emissiveIntensity: 1,
+                color: 0x000000
+            });
+            bulbLight_3.add(new THREE.Mesh(bulbGeometry_3, bulbMat_3));
+            bulbLight_3.position.set(10, 2.5, 0);
+            bulbLight_3.castShadow = true;
+            scene.add(bulbLight_3);
+
+            /* Bulb 4 */
+            var bulbGeometry_4 = new THREE.SphereBufferGeometry(0.1, 16, 8);
+            bulbLight_4 = new THREE.PointLight(0xffee88, 1, 100, 2);
+            bulbMat_4 = new THREE.MeshStandardMaterial({
+                emissive: 0xffffee,
+                emissiveIntensity: 1,
+                color: 0x000000
+            });
+            bulbLight_4.add(new THREE.Mesh(bulbGeometry_4, bulbMat_4));
+            bulbLight_4.position.set(10, 2.5, 10);
+            bulbLight_4.castShadow = true;
+            scene.add(bulbLight_4);
+
+
+            /* Bulb 5 */
+            var bulbGeometry_5 = new THREE.SphereBufferGeometry(0.1, 16, 8);
+            bulbLight_5 = new THREE.PointLight(0xffee88, 1, 100, 2);
+            bulbMat_5 = new THREE.MeshStandardMaterial({
+                emissive: 0xffffee,
+                emissiveIntensity: 1,
+                color: 0x000000
+            });
+            bulbLight_5.add(new THREE.Mesh(bulbGeometry_5, bulbMat_5));
+            bulbLight_5.position.set(0, 2.5, 10);
+            bulbLight_5.castShadow = true;
+            scene.add(bulbLight_5);
+
+
+            /* Bulb 6 */
+            var bulbGeometry_6 = new THREE.SphereBufferGeometry(0.1, 16, 8);
+            bulbLight_6 = new THREE.PointLight(0xffee88, 1, 100, 2);
+            bulbMat_6 = new THREE.MeshStandardMaterial({
+                emissive: 0xffffee,
+                emissiveIntensity: 1,
+                color: 0x000000
+            });
+            bulbLight_6.add(new THREE.Mesh(bulbGeometry_6, bulbMat_6));
+            bulbLight_6.position.set(-10, 2.5, 10);
+            bulbLight_6.castShadow = true;
+            scene.add(bulbLight_6);
+
+            /* Bulb 7 */
+            var bulbGeometry_7 = new THREE.SphereBufferGeometry(0.1, 16, 8);
+            bulbLight_7 = new THREE.PointLight(0xffee88, 1, 100, 2);
+            bulbMat_7 = new THREE.MeshStandardMaterial({
+                emissive: 0xffffee,
+                emissiveIntensity: 1,
+                color: 0x000000
+            });
+            bulbLight_7.add(new THREE.Mesh(bulbGeometry_7, bulbMat_7));
+            bulbLight_7.position.set(-10, 2.5, 0);
+            bulbLight_7.castShadow = true;
+            scene.add(bulbLight_7);
+
+            /* Bulb 8 */
+            var bulbGeometry_8 = new THREE.SphereBufferGeometry(0.1, 16, 8);
+            bulbLight_8 = new THREE.PointLight(0xffee88, 1, 100, 2);
+            bulbMat_8 = new THREE.MeshStandardMaterial({
+                emissive: 0xffffee,
+                emissiveIntensity: 1,
+                color: 0x000000
+            });
+            bulbLight_8.add(new THREE.Mesh(bulbGeometry_8, bulbMat_8));
+            bulbLight_8.position.set(-10, 2.5, -10);
+            bulbLight_8.castShadow = true;
+            scene.add(bulbLight_8);
+
+
+            /* Ambient light */
+            hemiLight = new THREE.HemisphereLight(0xddeeff, 0x0f0e0d, 0.02);
+            scene.add(hemiLight);
+
+            /* Material Setup  */
+            floorMat = new THREE.MeshStandardMaterial({
+                roughness: 0.8,
+                color: 0xffffff,
+                metalness: 0.2,
+                bumpScale: 0.0005
+            });
+
+            /* Add floor */
+
+            var floorGeometry = new THREE.PlaneBufferGeometry(20, 20);
+            var floorMesh = new THREE.Mesh(floorGeometry, floorMat);
+            floorMesh.receiveShadow = true;
+            floorMesh.rotation.x = -Math.PI / 2.0;
+            scene.add(floorMesh);
+
+
+            /* Add Tropper DAE */
+            var loader = new THREE.ColladaLoader();
+            loader.load('https://threejs.org/examples/models/collada/stormtrooper/stormtrooper.dae', function (collada) {
+
+                collada.scene.traverse(function (child) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                });
+
+                var animations = collada.animations;
+                var avatar = collada.scene;
+                mixer = new THREE.AnimationMixer(avatar);
+                var action = mixer.clipAction(animations[0]).play();
+                scene.add(avatar);
+            });
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.physicallyCorrectLights = true;
+            renderer.gammaInput = true;
+            renderer.gammaOutput = true;
+            renderer.shadowMap.enabled = true;
+            renderer.toneMapping = THREE.ReinhardToneMapping;
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            var controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+            window.addEventListener("resize", onWindowResize, false);
+
+            var gui = new dat.GUI();
+
+            gui.add(params, "hemiIrradiance", Object.keys(hemiLuminousIrradiances));
+            gui.add(params, "bulbPower", Object.keys(bulbLuminousPowers));
+            gui.add(params, "exposure", 0, 1);
+            gui.add(params, "shadows");
+
+            gui.open();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
+
+        var previousShadowMap = false;
+
+        function render() {
+            renderer.toneMappingExposure = Math.pow(params.exposure, 5.0); // to allow for very bright scenes.
+            renderer.shadowMap.enabled = params.shadows;
+
+            if (params.shadows !== previousShadowMap) {
+                floorMat.needsUpdate = true;
+                previousShadowMap = params.shadows;
+            }
+
+            bulbLight_1.castShadow = params.shadows;
+            bulbLight_2.castShadow = params.shadows;
+            bulbLight_3.castShadow = params.shadows;
+            bulbLight_4.castShadow = params.shadows;
+            bulbLight_5.castShadow = params.shadows;
+            bulbLight_6.castShadow = params.shadows;
+            bulbLight_7.castShadow = params.shadows;
+            bulbLight_8.castShadow = params.shadows;
+
+
+            if (noteValues["60"]) {
+                bulbLight_1.power = bulbLuminousPowers[params.bulbPower];
+                bulbMat_1.emissiveIntensity = bulbLight_1.intensity / Math.pow(0.02, 2.0);
+            } else {
+                bulbLight_1.power = 0;
+                bulbMat_1.emissiveIntensity = 0;
+            }
+
+            if (noteValues["61"]) {
+                bulbLight_2.power = bulbLuminousPowers[params.bulbPower];
+                bulbMat_2.emissiveIntensity = bulbLight_2.intensity / Math.pow(0.02, 2.0);
+            } else {
+                bulbLight_2.power = 0;
+                bulbMat_2.emissiveIntensity = 0;
+            }
+
+            if (noteValues["62"]) {
+                bulbLight_3.power = bulbLuminousPowers[params.bulbPower];
+                bulbMat_3.emissiveIntensity = bulbLight_3.intensity / Math.pow(0.02, 2.0);
+            } else {
+                bulbLight_3.power = 0;
+                bulbMat_3.emissiveIntensity = 0;
+            }
+
+            if (noteValues["63"]) {
+                bulbLight_4.power = bulbLuminousPowers[params.bulbPower];
+                bulbMat_4.emissiveIntensity = bulbLight_4.intensity / Math.pow(0.02, 2.0);
+            } else {
+                bulbLight_4.power = 0;
+                bulbMat_4.emissiveIntensity = 0;
+            }
+
+            if (noteValues["64"]) {
+                bulbLight_5.power = bulbLuminousPowers[params.bulbPower];
+                bulbMat_5.emissiveIntensity = bulbLight_5.intensity / Math.pow(0.02, 2.0);
+            } else {
+                bulbLight_5.power = 0;
+                bulbMat_5.emissiveIntensity = 0;
+            }
+
+            if (noteValues["65"]) {
+                bulbLight_6.power = bulbLuminousPowers[params.bulbPower];
+                bulbMat_6.emissiveIntensity = bulbLight_6.intensity / Math.pow(0.02, 2.0);
+            } else {
+                bulbLight_6.power = 0;
+                bulbMat_6.emissiveIntensity = 0;
+            }
+
+            if (noteValues["66"]) {
+                bulbLight_7.power = bulbLuminousPowers[params.bulbPower];
+                bulbMat_7.emissiveIntensity = bulbLight_7.intensity / Math.pow(0.02, 2.0);
+            } else {
+                bulbLight_7.power = 0;
+                bulbMat_7.emissiveIntensity = 0;
+            }
+
+            if (noteValues["67"]) {
+                bulbLight_8.power = bulbLuminousPowers[params.bulbPower];
+                bulbMat_8.emissiveIntensity = bulbLight_8.intensity / Math.pow(0.02, 2.0);
+            } else {
+                bulbLight_8.power = 0;
+                bulbMat_8.emissiveIntensity = 0;
+            }
+
+            // convert from intensity to irradiance at bulb surface
+            hemiLight.intensity = hemiLuminousIrradiances[params.hemiIrradiance];
+            var time = Date.now() * 0.0005;
+
+            renderer.render(scene, camera);
+            var delta = clock.getDelta();
+            if (mixer !== undefined) {
+                mixer.update(delta);
+            }
+
+            stats.update();
+        }
+
+    </script>
+</body>
+
+</html>
